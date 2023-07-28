@@ -65,6 +65,8 @@ public class DefaultClassLoaderEntriesCalculator
 
         List<String> buildDirectories = new ArrayList<String>();
 
+        final List<Artifact> dependencies = new ArrayList<>();
+
         // add classes directories to loader
         try
         {
@@ -119,6 +121,7 @@ public class DefaultClassLoaderEntriesCalculator
                         {
                             classLoaderEntries.add( artifact.getFile().toURI().toString() );
                             fileInClassLoaderEntries.add( fileName );
+                            dependencies.add(artifact);
                         }
                     }
                     else
@@ -221,7 +224,8 @@ public class DefaultClassLoaderEntriesCalculator
 
         return new ClassLoaderEntriesCalculatorResult( new ArrayList<String>( classLoaderEntries ), //
                                                        tmpDirectories, //
-                                                       buildDirectories );
+                                                       buildDirectories,
+                                                       dependencies);
 
     }
 

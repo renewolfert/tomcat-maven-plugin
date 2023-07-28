@@ -25,8 +25,11 @@ import java.io.IOException;
 import java.io.StringWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 import org.apache.catalina.Context;
@@ -306,22 +309,29 @@ public class RunMojo
                 .setUseTestClassPath( useTestClasspath );
             final ClassLoaderEntriesCalculatorResult classLoaderEntriesCalculatorResult =
                 classLoaderEntriesCalculator.calculateClassPathEntries( request );
-            final List<String> classLoaderEntries = classLoaderEntriesCalculatorResult.getClassPathEntries();
+            final List<Artifact> dependencies = classLoaderEntriesCalculatorResult.getDependencies();
             final List<File> tmpDirectories = classLoaderEntriesCalculatorResult.getTmpDirectories();
-
             /* Add jars */
-            final List<String> jarPaths = extractJars( classLoaderEntries );
-            for (String jarPath : jarPaths) {
+            final List<ArtifactJar> jarPaths = extractJars( dependencies );
+            final Path tempDirectory = Files.createTempDirectory("maven-tomcat9-plugin-run-");
+            for (ArtifactJar artifactJar : jarPaths) {
+                String jarPath = artifactJar.path;
                 File f = new File(jarPath);
                 if (f.exists()) {
                     /* We add the jar as a file under /WEB-INF/lib and Tomcat takes care of creating a JarResourceSet for its classes and
                        for its resources in /META-INF/resources as appropriate. Basically it hooks into Tomcat's usual handling.
                      */
                     getLog().debug("Adding jar resource: " + f.getAbsolutePath());
-                    FileResourceSet fileResourceSet = new FileResourceSet(context.getResources(), "/WEB-INF/lib/" + f.getName(), f.getAbsolutePath(), "/");
+                    String copiedJarName = String.format("%s.%s-%s.jar", artifactJar.artifact.getGroupId(), artifactJar.artifact.getArtifactId(), artifactJar.artifact.getVersion());
+                    
+                    Path copiedJar = tempDirectory.resolve(copiedJarName);
+                    Files.copy(Path.of(f.getAbsolutePath()), copiedJar);
+                    
+                    FileResourceSet fileResourceSet = new FileResourceSet(context.getResources(), "/WEB-INF/lib/" + copiedJarName, copiedJar.toString(), "/");                    
                     context.getResources().addPostResources(fileResourceSet);
                 }
             }
+            tmpDirectories.add(tempDirectory.toFile());
 
             /* Add build directories */
             getLog().debug("Adding classes resource: " + new File(project.getBuild().getOutputDirectory()).getAbsolutePath());
@@ -419,7 +429,7 @@ public class RunMojo
                 }
             } );
         }
-        catch ( TomcatRunException e )
+        catch ( IOException | TomcatRunException e )
         {
             throw new MojoExecutionException( e.getMessage(), e );
         }
@@ -433,21 +443,22 @@ public class RunMojo
      * @param classLoaderEntries
      * @return
      */
-    private List<String> extractJars( List<String> classLoaderEntries )
+    private List<ArtifactJar> extractJars( List<Artifact> dependencies )
         throws MojoExecutionException
     {
 
-        List<String> jarPaths = new ArrayList<String>();
+        List<ArtifactJar> jarPaths = new ArrayList<>();
 
         try
         {
-            for ( String classLoaderEntry : classLoaderEntries )
+            for ( Artifact artifact : dependencies )
             {
+                String classLoaderEntry = artifact.getFile().toURI().toString();
                 URI uri = new URI( classLoaderEntry );
                 File file = new File( uri );
                 if ( !file.isDirectory() && StringUtils.endsWithIgnoreCase(file.getName(), ".jar"))
                 {
-                    jarPaths.add( file.getAbsolutePath() );
+                    jarPaths.add( new ArtifactJar(artifact, file.getAbsolutePath()) );
                 }
             }
         }
@@ -458,5 +469,17 @@ public class RunMojo
 
         return jarPaths;
 
+    }
+    
+
+    private static class ArtifactJar {
+        private final String path;
+
+        private final Artifact artifact;
+
+        public ArtifactJar(final Artifact artifact, final String path) {
+            this.artifact = Objects.requireNonNull(artifact, "artifact");
+            this.path = Objects.requireNonNull(path, "path");
+        }
     }
 }

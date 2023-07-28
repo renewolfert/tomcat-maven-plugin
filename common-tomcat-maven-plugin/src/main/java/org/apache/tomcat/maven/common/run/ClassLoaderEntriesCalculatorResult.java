@@ -21,6 +21,8 @@ package org.apache.tomcat.maven.common.run;
 import java.io.File;
 import java.util.List;
 
+import org.apache.maven.artifact.Artifact;
+
 /**
  * @author Olivier Lamy
  * @since 2.0
@@ -43,17 +45,20 @@ public class ClassLoaderEntriesCalculatorResult
      */
     private List<String> buildDirectories;
 
+    private final List<Artifact> dependencies;
+
     /**
      * @param classPathEntries  Classpath entries File .toURI().toString()
      * @param tmpDirectories    List of files to cleanup after execution
      * @param buildDirectories  Directory part of webapp classpath (project.build.directory and reactor projects)
      */
     public ClassLoaderEntriesCalculatorResult( List<String> classPathEntries, List<File> tmpDirectories,
-                                               List<String> buildDirectories )
+                                               List<String> buildDirectories, List<Artifact> dependencies )
     {
         this.classPathEntries = classPathEntries;
         this.tmpDirectories = tmpDirectories;
         this.buildDirectories = buildDirectories;
+        this.dependencies = dependencies;
     }
 
     public List<String> getClassPathEntries()
@@ -79,5 +84,10 @@ public class ClassLoaderEntriesCalculatorResult
     public List<String> getBuildDirectories()
     {
         return buildDirectories;
+    }
+
+    public List<Artifact> getDependencies()
+    {
+        return dependencies;
     }
 }
