@@ -33,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.UUID;
 
 import javax.servlet.ServletException;
 import javax.xml.parsers.DocumentBuilder;
@@ -181,9 +182,14 @@ public abstract class AbstractRunMojo
      *
      * @since 2.0
      */
-    @Parameter( property = "maven.tomcat.ajp.protocol", defaultValue = "org.apache.coyote.ajp.AjpProtocol" )
     @Parameter( property = "maven.tomcat.ajp.protocol", defaultValue = "org.apache.coyote.ajp.AjpNio2Protocol" )
     private String ajpProtocol;
+
+    @Parameter( property = "maven.tomcat.ajp.secret" )
+    private String ajpSecret;
+
+    @Parameter( property = "maven.tomcat.ajp.secretRequired", defaultValue = "true" )
+    private boolean ajpSecretRequired;
 
     /**
      * The https port to run the Tomcat server on.
@@ -1225,6 +1231,12 @@ public abstract class AbstractRunMojo
                     {
                         ajpConnector.setAttribute( "address", address );
                     }
+                    String ajpSecretValue = ajpSecret;
+                    if (ajpSecretRequired && (ajpSecretValue == null || ajpSecretValue.isBlank())) {
+                        ajpSecretValue = UUID.randomUUID().toString();
+                    }
+                    ajpConnector.setProperty("secret", ajpSecretValue);
+                    ajpConnector.setProperty("secretrequired", Boolean.toString(ajpSecretRequired));
                     embeddedTomcat.getEngine().getService().addConnector( ajpConnector );
                 }
 
